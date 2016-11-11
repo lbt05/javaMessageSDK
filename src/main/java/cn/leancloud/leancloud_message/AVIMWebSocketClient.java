@@ -99,8 +99,6 @@ public class AVIMWebSocketClient extends WebSocketClient {
             TimeUnit.MILLISECONDS);
     if (listener != null) {
       listener.loginCmd();
-      listener.processConnectionStatus(null);
-      listener.processSessionsStatus(false);
     }
   }
 
@@ -120,12 +118,6 @@ public class AVIMWebSocketClient extends WebSocketClient {
   public void onClose(int code, String reason, boolean remote) {
     if (healthFuture != null) {
       healthFuture.cancel(true);
-    }
-    if (listener != null) {
-      listener.processSessionsStatus(true);
-    }
-    if (listener != null) {
-      listener.processConnectionStatus(new AVException(code, reason));
     }
     LogUtil.avlog.d("local disconnection:" + code + "  " + reason + " :" + remote);
     switch (code) {
@@ -243,10 +235,6 @@ public class AVIMWebSocketClient extends WebSocketClient {
 
     void processCommand(ByteBuffer bytes);
 
-    void processConnectionStatus(AVException e);
-
     void processRemoteServerNotAvailable();
-
-    void processSessionsStatus(boolean closeEvent);
   }
 }

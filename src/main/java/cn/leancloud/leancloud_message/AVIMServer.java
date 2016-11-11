@@ -25,7 +25,6 @@ import cn.leancloud.leancloud_message.packet.OfflineMessagesUnreadClearPacket;
 import cn.leancloud.leancloud_message.packet.SessionControlPacket;
 
 import com.alibaba.fastjson.JSON;
-import com.avos.avoscloud.AVException;
 import com.avos.avoscloud.AVInstallation;
 import com.avos.avoscloud.AVOSCloud;
 import com.avos.avoscloud.AVUtils;
@@ -50,12 +49,14 @@ class AVIMServer implements AVSocketListener {
       public void onServerAddress(String address) {
         if (!AVUtils.isBlankString(address)) {
           createNewWebSocket(address);
+        } else {
+          processRemoteServerNotAvailable();
         }
       }
     });
   }
 
-  private void createNewWebSocket(final String pushServer) {
+  private synchronized void createNewWebSocket(final String pushServer) {
     if (socketClient == null || socketClient.isClosed()) {
       // 由于需要链接到新的server address上,原来的client就要被抛弃了,抛弃前需要取消自动重连的任务
       if (socketClient != null) {
@@ -336,17 +337,11 @@ class AVIMServer implements AVSocketListener {
   }
 
   @Override
-  public void processConnectionStatus(AVException e) {
-
-  }
-
-  @Override
   public void processRemoteServerNotAvailable() {
-
+    this.start();
   }
 
-  @Override
-  public void processSessionsStatus(boolean closeEvent) {
-
+  public void start() {
+    router.fetchPushServer();
   }
 }
