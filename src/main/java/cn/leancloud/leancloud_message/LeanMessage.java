@@ -30,7 +30,5 @@ public class LeanMessage {
                 receiver.onReceive(intent);
               }
             }).build();
-    AVIMServer server = AVIMServer.getInstance();
-    server.start();
   }
 }

@@ -160,9 +160,9 @@ public class AVIMClient {
               @Override
               public void execute(Intent intent, Throwable error) {
                 if (error != null) {
-                  sessionOpened.set(true);
-                } else {
                   sessionOpened.set(false);
+                } else {
+                  sessionOpened.set(true);
                 }
                 if (callback != null)
                   callback.internalDone(AVIMClient.this, AVIMException.wrapperAVException(error));
@@ -178,8 +178,7 @@ public class AVIMClient {
             intent.putExtra(Conversation.INTENT_KEY_REQUESTID, requestId);
             intent.putExtra(Conversation.INTENT_KEY_DATA, tag);
             intent.putExtra(Conversation.INTENT_KEY_SIGNATURE, sig);
-            AVIMServer.getInstance().sendData(
-                AVIMOperation.CLIENT_OPEN.genCommand(intent));
+            AVIMServer.getInstance().sendData(AVIMOperation.CLIENT_OPEN.genCommand(intent));
           } else {
             if (callback != null) {
               callback.done(AVIMClient.this, new AVIMException(e));
@@ -241,8 +240,7 @@ public class AVIMClient {
     intent.putExtra(Conversation.INTENT_KEY_REQUESTID, requestId);
     intent.putExtra(Conversation.INTENT_KEY_CLIENT, clientId);
     intent.putExtra(Conversation.INTENT_KEY_DATA, clients);
-    AVIMServer.getInstance().sendData(
-        AVIMOperation.CLIENT_ONLINE_QUERY.genCommand(intent));
+    AVIMServer.getInstance().sendData(AVIMOperation.CLIENT_ONLINE_QUERY.genCommand(intent));
   }
 
   /**
@@ -365,11 +363,11 @@ public class AVIMClient {
             intent.putExtra(Conversation.INTENT_KEY_REQUESTID, requestId);
             intent.putExtra(Conversation.INTENT_KEY_SIGNATURE, sig);
             intent.putExtra(Conversation.PARAM_CONVERSATION_MEMBER, members);
-            intent.putExtra(Conversation.PARAM_CONVERSATION_ATTRIBUTE, attributes);
+            intent.putExtra(Conversation.PARAM_CONVERSATION_ATTRIBUTE, conversationAttributes);
             intent.putExtra(Conversation.PARAM_CONVERSATION_ISTRANSIENT, isTransient);
             intent.putExtra(Conversation.PARAM_CONVERSATION_ISUNIQUE, isUnique);
             AVIMServer.getInstance().sendData(
-                AVIMOperation.CLIENT_OPEN.genCommand(intent));
+                AVIMOperation.CONVERSATION_CREATION.genCommand(intent));
           } else {
             if (callback != null) {
               callback.done(null, new AVIMException(e));
@@ -482,8 +480,7 @@ public class AVIMClient {
     Intent intent = new Intent();
     intent.putExtra(Conversation.INTENT_KEY_REQUESTID, requestId);
     intent.putExtra(Conversation.INTENT_KEY_CLIENT, this.clientId);
-    AVIMServer.getInstance().sendData(
-        AVIMOperation.CLIENT_DISCONNECT.genCommand(intent));
+    AVIMServer.getInstance().sendData(AVIMOperation.CLIENT_DISCONNECT.genCommand(intent));
   }
 
   /**
@@ -582,6 +579,7 @@ public class AVIMClient {
       if (callback != null) {
         try {
           Signature sig = callback.computeSignature();
+          callback.onSignatureReady(sig, null);
         } catch (SignatureException e) {
           callback.onSignatureReady(null, new AVException(e));
         }

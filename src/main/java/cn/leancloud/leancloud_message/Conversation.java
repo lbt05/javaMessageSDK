@@ -159,7 +159,7 @@ public interface Conversation {
                   ((AVIMMessage) intent.getExtra(Conversation.INTENT_KEY_DATA)).getContent(),
                   ((AVIMMessage) intent.getExtra(Conversation.INTENT_KEY_DATA)).getUniqueToken(),
                   ((int) intent.getExtra(Conversation.INTENT_KEY_MESSAGEFLAG) & AVIMConversation.RECEIPT_MESSAGE_FLAG) == AVIMConversation.RECEIPT_MESSAGE_FLAG,
-                  ((int) intent.getExtra(Conversation.INTENT_KEY_MESSAGEFLAG) & AVIMConversation.TRANSIENT_MESSAGE_FLAG) == AVIMConversation.TRANSIENT_MESSAGE_FLAG,
+                  ((int) intent.getExtra(Conversation.INTENT_KEY_MESSAGEFLAG) & AVIMConversation.NONTRANSIENT_MESSAGE_FLAG) == AVIMConversation.TRANSIENT_MESSAGE_FLAG,
                   requestId);
         case 40006:
           // CLIENT_OPEN

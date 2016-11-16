@@ -1,12 +1,17 @@
 package cn.leancloud.leancloud_message;
 
-import java.util.concurrent.TimeUnit;
+import java.util.Arrays;
+import java.util.concurrent.CountDownLatch;
 
+import junit.framework.Assert;
 import junit.framework.Test;
 import junit.framework.TestCase;
 import junit.framework.TestSuite;
-import net.jodah.expiringmap.ExpirationListener;
-import net.jodah.expiringmap.ExpiringMap;
+import cn.leancloud.leancloud_message.callback.AVIMClientCallback;
+import cn.leancloud.leancloud_message.callback.AVIMConversationCallback;
+import cn.leancloud.leancloud_message.callback.AVIMConversationCreatedCallback;
+
+import com.avos.avoscloud.AVOSCloud;
 
 /**
  * Unit test for simple App.
@@ -28,26 +33,64 @@ public class AppTest extends TestCase {
     return new TestSuite(AppTest.class);
   }
 
-  /**
-   * Rigourous Test :-)
-   */
-  public void testApp() {
-    assertTrue(true);
+  String clientId = "testAccount";
+
+  public String prepareConversation() throws InterruptedException {
+    final CountDownLatch lock = new CountDownLatch(1);
+    AVOSCloud.setDebugLogEnabled(true);
+    LeanMessage.initialize("anruhhk6visejjip57psvv5uuv8sggrzdfl9pg2bghgsiy35",
+        "xhiibo2eiyokjdu2y3kqcb7334rtw4x33zam98buxzkjuq5g");
+    AVIMClient client = AVIMClient.getInstance(clientId);
+    final String[] result = new String[1];
+    client.open(new AVIMClientCallback() {
+
+      @Override
+      public void done(AVIMClient client, AVIMException e) {
+        if (e != null) {
+          e.printStackTrace();
+        } else {
+          client.createConversation(Arrays.asList("testAccount", "Tango"), "testConversation",
+              null, false, true, new AVIMConversationCreatedCallback() {
+
+                @Override
+                public void done(AVIMConversation conversation, AVIMException e) {
+                  if (e != null) {
+                    e.printStackTrace();
+                  } else {
+                    result[0] = conversation.getConversationId();
+                  }
+                  lock.countDown();
+                }
+              });
+        }
+      }
+    });
+    lock.await();
+    return result[0];
   }
 
-  public void testExpireMap() throws InterruptedException {
-    ExpiringMap<String, Long> receiver =
-        ExpiringMap.builder().expiration(1, TimeUnit.SECONDS)
-            .asyncExpirationListener(new ExpirationListener<String, Long>() {
+  public void testSendMessage() throws Exception {
+    String conversationId = prepareConversation();
+    final CountDownLatch lock = new CountDownLatch(1);
+    AVIMClient client = AVIMClient.getInstance(clientId);
+    AVIMConversation conversation = client.getConversation(conversationId);
+    AVIMMessage msg = new AVIMMessage();
+    msg.setContent("Test MSG");
 
-              @Override
-              public void expired(String k, Long v) {
-                System.out.println(k + ":" + v + System.currentTimeMillis());
-              }
-            }).build();
-    receiver.put("action", 123l);
-    System.out.println(System.currentTimeMillis());
-    Thread.sleep(2000);
-    System.out.println(receiver.size());
+    final Exception[] result = new Exception[1];
+    conversation.sendMessage(msg, AVIMConversation.NONTRANSIENT_MESSAGE_FLAG,
+        new AVIMConversationCallback() {
+
+          @Override
+          public void done(AVIMException e) {
+            result[0] = e;
+            if (e != null) {
+              e.printStackTrace();
+            }
+            lock.countDown();
+          }
+        });
+    lock.await();
+    Assert.assertNull(result[0]);
   }
 }

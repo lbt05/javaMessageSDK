@@ -142,6 +142,15 @@ public class AVIMWebSocketClient extends WebSocketClient {
         scheduleReconnect();
         break;
     }
+    // clean up works
+    for (AVIMClient client : AVIMClient.clients.values()) {
+      if (!client.sessionPaused.getAndSet(true) && AVIMClient.clientEventHandler != null) {
+        AVIMClient.clientEventHandler.processEvent(Conversation.STATUS_ON_CONNECTION_PAUSED, null,
+            null, client);
+      }
+    }
+    // all pending commands
+    AVIMBaseBroadcastReceiver.expireAllRequests(code);
   }
 
   @Override

@@ -5,6 +5,7 @@ import java.util.Map;
 
 import cn.leancloud.leancloud_message.Signature;
 
+import com.alibaba.fastjson.JSON;
 import com.avos.avoscloud.AVUtils;
 import com.avos.avoscloud.internal.InternalConfigurationController;
 
@@ -161,7 +162,7 @@ public class ConversationControlPacket extends PeerBasedCommandPacket {
     if (attributes != null && !attributes.isEmpty()) {
       Messages.JsonObjectMessage.Builder attrBuilder = Messages.JsonObjectMessage.newBuilder();
 
-      attrBuilder.setData(attributes.toString());
+      attrBuilder.setData(JSON.toJSONString(attributes));
       builder.setAttr(attrBuilder);
     }
 

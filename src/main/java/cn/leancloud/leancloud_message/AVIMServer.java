@@ -12,6 +12,8 @@ import cn.leancloud.leancloud_message.AVIMWebSocketClient.AVSocketListener;
 import cn.leancloud.leancloud_message.packet.CommandPacket;
 import cn.leancloud.leancloud_message.packet.ConversationAckPacket;
 import cn.leancloud.leancloud_message.packet.ConversationControlPacket;
+import cn.leancloud.leancloud_message.packet.ConversationControlPacket.ConversationControlOp;
+import cn.leancloud.leancloud_message.packet.ConversationDirectMessagePacket;
 import cn.leancloud.leancloud_message.packet.LoginPacket;
 import cn.leancloud.leancloud_message.packet.Messages;
 import cn.leancloud.leancloud_message.packet.Messages.ConvCommand;
@@ -23,8 +25,11 @@ import cn.leancloud.leancloud_message.packet.Messages.SessionCommand;
 import cn.leancloud.leancloud_message.packet.Messages.UnreadCommand;
 import cn.leancloud.leancloud_message.packet.OfflineMessagesUnreadClearPacket;
 import cn.leancloud.leancloud_message.packet.SessionControlPacket;
+import cn.leancloud.leancloud_message.packet.SessionControlPacket.SessionControlOp;
 
 import com.alibaba.fastjson.JSON;
+import com.avos.avoscloud.AVCallback;
+import com.avos.avoscloud.AVException;
 import com.avos.avoscloud.AVInstallation;
 import com.avos.avoscloud.AVOSCloud;
 import com.avos.avoscloud.AVUtils;
@@ -80,10 +85,44 @@ class AVIMServer implements AVSocketListener {
     return server;
   }
 
-  public void sendData(CommandPacket cp) {
-    int requestId = cp.getRequestId();
-    if (socketClient.isOpen()) {
+  public void sendData(final CommandPacket cp) {
+    final int requestId = cp.getRequestId();
+    if (socketClient != null && socketClient.isOpen()) {
       socketClient.send(cp);
+      if (cp instanceof ConversationDirectMessagePacket
+          && ((ConversationDirectMessagePacket) cp).isTransient()) {
+        AVIMBaseBroadcastReceiver receiver = AVIMBaseBroadcastReceiver.removeReceiver(requestId);
+        receiver.onReceive(null);
+      }
+    } else if ((cp instanceof SessionControlPacket)
+        && ((SessionControlPacket) cp).getOp().equals(SessionControlOp.OPEN)) {
+      final AVIMBaseBroadcastReceiver openReceiver =
+          AVIMBaseBroadcastReceiver.removeReceiver(requestId);
+      AVCallback serverConnectionCallback = new AVCallback() {
+
+        @Override
+        protected void internalDone0(Object t, AVException connectionException) {
+          if (connectionException != null) {
+            Intent intent = new Intent();
+            intent.putExtra(Conversation.callbackExceptionKey, connectionException);
+            openReceiver.onReceive(intent);
+          } else {
+            AVIMBaseBroadcastReceiver.register(requestId, openReceiver);
+            sendData(cp);
+          }
+        }
+      };
+      start(new AVIMBaseBroadcastReceiver(serverConnectionCallback) {
+
+        @Override
+        public void execute(Intent intent, Throwable error) {
+          if (error != null) {
+            callback.internalDone(new AVIMException(error));
+          } else {
+            callback.internalDone(null);
+          }
+        }
+      });
     } else {
       AVIMBaseBroadcastReceiver receiver = AVIMBaseBroadcastReceiver.removeReceiver(requestId);
       Intent intent = new Intent();
@@ -99,6 +138,11 @@ class AVIMServer implements AVSocketListener {
         .getApplicationId());
     lp.setInstallationId(AVInstallation.getCurrentInstallation().getInstallationId());
     socketClient.send(lp);
+    AVIMBaseBroadcastReceiver receiver =
+        AVIMBaseBroadcastReceiver.removeReceiver(START_SERVER_REQUEST_ID);
+    if (receiver != null) {
+      receiver.onReceive(null);
+    }
   }
 
   @Override
@@ -221,16 +265,61 @@ class AVIMServer implements AVSocketListener {
 
   private void processConvCommand(String peerId, String operation, Integer requestKey,
       ConvCommand convMessage) {
-    AVIMBaseBroadcastReceiver receiver = AVIMBaseBroadcastReceiver.removeReceiver(requestKey);
-    Intent intent = new Intent();
-    if (ConversationControlPacket.ConversationControlOp.QUERY_RESULT.equals(operation)) {
-      String result = convMessage.getResults().getData();
-      intent.putExtra(Conversation.callbackConversationKey, result);
+    if (requestKey != null) {
+      AVIMBaseBroadcastReceiver receiver = AVIMBaseBroadcastReceiver.removeReceiver(requestKey);
+      Intent intent = new Intent();
+      if (ConversationControlPacket.ConversationControlOp.QUERY_RESULT.equals(operation)) {
+        String result = convMessage.getResults().getData();
+        intent.putExtra(Conversation.callbackConversationKey, result);
+      } else {
+        String conversationId = convMessage.getCid();
+        intent.putExtra(Conversation.callbackConversationKey, conversationId);
+        intent.putExtra(Conversation.callbackCreatedAt, convMessage.getCdate());
+      }
+      if (receiver != null) {
+        receiver.onReceive(intent);
+      }
     } else {
-      String conversationId = convMessage.getCid();
-      intent.putExtra(Conversation.callbackConversationKey, conversationId);
+      // process passive event
+      processConversationCommandFromServer(peerId, operation, convMessage);
     }
-    receiver.onReceive(intent);
+  }
+
+  private void processConversationCommandFromServer(String peerId, String operation,
+      ConvCommand convCommand) {
+
+    AVIMConversationEventHandler handler = AVIMMessageManager.getConversationEventHandler();
+    List<String> members = convCommand.getMList();
+    AVIMConversation conversation =
+        AVIMClient.getInstance(peerId).getConversation(convCommand.getCid());
+    if (ConversationControlOp.JOINED.equals(operation)) {
+      String invitedBy = convCommand.getInitBy();
+      // 这里是我自己邀请了我自己，这个事件会被忽略。因为伴随这个消息一起来的还有added消息
+      if (invitedBy.equals(peerId)) {
+        return;
+      } else if (!invitedBy.equals(peerId)) {
+        if (handler != null) {
+          handler.processEvent(Conversation.STATUS_ON_JOINED, invitedBy, null, conversation);
+        }
+      }
+    } else if (ConversationControlOp.LEFT.equals(operation)) {
+      String invitedBy = convCommand.getInitBy();
+      if (invitedBy != null && !invitedBy.equals(peerId) && handler != null) {
+        handler.processEvent(Conversation.STATUS_ON_KICKED_FROM_CONVERSATION, invitedBy, null,
+            conversation);
+      }
+    } else if (ConversationControlOp.MEMBER_JOINED.equals(operation)) {
+      String invitedBy = convCommand.getInitBy();
+      if (handler != null) {
+        handler.processEvent(Conversation.STATUS_ON_MEMBERS_JOINED, invitedBy, members,
+            conversation);
+      }
+    } else if (ConversationControlOp.MEMBER_LEFTED.equals(operation)) {
+      String removedBy = convCommand.getInitBy();
+      if (handler != null) {
+        handler.processEvent(Conversation.STATUS_ON_MEMBERS_LEFT, removedBy, members, conversation);
+      }
+    }
   }
 
   private void processRcpCommand(String peerId, RcpCommand command) {
@@ -274,14 +363,16 @@ class AVIMServer implements AVSocketListener {
         int requestId = (null != requestKey ? requestKey : CommandPacket.UNSUPPORTED_OPERATION);
         AVIMBaseBroadcastReceiver receiver = AVIMBaseBroadcastReceiver.removeReceiver(requestId);
         if (receiver != null) {
-          receiver.onReceive(null);
+          Intent intent = new Intent();
+          receiver.onReceive(intent);
         }
       } else {
         if (AVOSCloud.showInternalDebugLog()) {
           LogUtil.avlog.d("session resumed");
         }
         if (AVIMClient.clientEventHandler != null) {
-          AVIMClient.clientEventHandler.onConnectionResume(client);
+          AVIMClient.clientEventHandler.processEvent(Conversation.STATUS_ON_CONNECTION_RESUMED,
+              null, null, client);
         }
       }
     } else if (op.equals(SessionControlPacket.SessionControlOp.QUERY_RESULT)) {
@@ -297,7 +388,8 @@ class AVIMServer implements AVSocketListener {
       int requestId = (null != requestKey ? requestKey : CommandPacket.UNSUPPORTED_OPERATION);
       if (command.hasCode()) {
         if (AVIMClient.clientEventHandler != null) {
-          AVIMClient.clientEventHandler.onClientOffline(client, command.getCode());
+          AVIMClient.clientEventHandler.processEvent(Conversation.STATUS_ON_CLIENT_OFFLINE, null,
+              command.getCode(), client);
         }
       } else {
         AVIMBaseBroadcastReceiver receiver = AVIMBaseBroadcastReceiver.removeReceiver(requestId);
@@ -338,10 +430,26 @@ class AVIMServer implements AVSocketListener {
 
   @Override
   public void processRemoteServerNotAvailable() {
-    this.start();
+    InternalConfigurationController.globalInstance().getInternalLogger()
+        .e(AVIMServer.class.getName(), "Remote server not available");
+    AVIMBaseBroadcastReceiver receiver =
+        AVIMBaseBroadcastReceiver.removeReceiver(START_SERVER_REQUEST_ID);
+    if (receiver != null) {
+      Intent intent = new Intent();
+      intent.putExtra(Conversation.callbackExceptionKey, new RuntimeException(
+          "Remote server not available"));
+      receiver.onReceive(intent);
+    }
   }
 
   public void start() {
+    router.fetchPushServer();
+  }
+
+  private static final int START_SERVER_REQUEST_ID = 965569;
+
+  private void start(AVIMBaseBroadcastReceiver receiver) {
+    AVIMBaseBroadcastReceiver.register(START_SERVER_REQUEST_ID, receiver);
     router.fetchPushServer();
   }
 }

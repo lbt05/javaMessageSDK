@@ -151,7 +151,7 @@ public class AVIMRouter {
   }
 
   private HashMap<String, Object> getPushServerFromCache() {
-    HashMap<String, Object> pushServerMap = new HashMap<String, Object>();
+    HashMap<String, Object> pushServerMap = null;
     String pushServerData =
         InternalConfigurationController
             .globalInstance()
@@ -160,7 +160,8 @@ public class AVIMRouter {
                 PUSH_SERVER_KEYZONE,
                 String.format(PUSH_SERVER_CACHE_KEY_FMT, InternalConfigurationController
                     .globalInstance().getAppConfiguration().getApplicationId()), null);
-    if (AVUtils.isBlankString(pushServerData)) {
+    if (!AVUtils.isBlankString(pushServerData)) {
+      pushServerMap = new HashMap<String, Object>();
       Map<String, Object> serverData = JSON.parseObject(pushServerData, Map.class);
       pushServerMap.put(SERVER, serverData.get(SERVER));
       pushServerMap.put(EXPIRE_AT, serverData.get(EXPIRE_AT));

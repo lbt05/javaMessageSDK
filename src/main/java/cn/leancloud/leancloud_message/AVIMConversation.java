@@ -758,8 +758,8 @@ public class AVIMConversation {
           if (error == null) {
             // 处理发送成功的消息
             long timestamp =
-                (long) (intent.getExtra(Conversation.callbackMessageTimeStamp) == null ? -1
-                    : intent.getExtra(Conversation.callbackMessageTimeStamp));
+                (intent.getExtra(Conversation.callbackMessageTimeStamp) == null) ? -1
+                    : (long) intent.getExtra(Conversation.callbackMessageTimeStamp);
             String messageId = (String) intent.getExtra(Conversation.callbackMessageId);
             message.setMessageId(messageId);
             message.setMessageStatus(AVIMMessage.AVIMMessageStatus.AVIMMessageStatusSent);

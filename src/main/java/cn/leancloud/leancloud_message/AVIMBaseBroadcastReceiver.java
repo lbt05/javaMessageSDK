@@ -15,8 +15,9 @@ abstract class AVIMBaseBroadcastReceiver {
       Throwable error =
           intent == null ? null : (Throwable) intent.getExtras().get(
               Conversation.callbackExceptionKey);
-      execute(intent, error);
+      execute(intent == null ? new Intent() : intent, error);
     } catch (Exception e) {
+      e.printStackTrace();
       if (callback != null) {
         callback.internalDone(null, new AVException(e));
       }
@@ -31,6 +32,20 @@ abstract class AVIMBaseBroadcastReceiver {
   }
 
   public static AVIMBaseBroadcastReceiver removeReceiver(int requestId) {
-    return LeanMessage.receivers.remove(requestId);
+    if (LeanMessage.receivers.containsKey(requestId)) {
+      return LeanMessage.receivers.remove(requestId);
+    } else {
+      return null;
+    }
+  }
+
+  public static void expireAllRequests(int code) {
+    for (int requestId : LeanMessage.receivers.keySet()) {
+      AVIMBaseBroadcastReceiver receiver = AVIMBaseBroadcastReceiver.removeReceiver(requestId);
+      Intent intent = new Intent();
+      intent.putExtra(Conversation.callbackExceptionKey, new AVIMException(code,
+          "disconnected from server"));
+      receiver.onReceive(intent);
+    }
   }
 }
