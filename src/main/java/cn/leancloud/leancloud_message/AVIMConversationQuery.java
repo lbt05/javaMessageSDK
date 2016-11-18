@@ -503,11 +503,14 @@ public class AVIMConversationQuery {
     AVIMBaseBroadcastReceiver.register(requestId, receiver);
 
     AVIMServer.getInstance().sendData(
-        ConversationQueryPacket.getConversationQueryPacket(client.clientId,
+        ConversationQueryPacket.getConversationQueryPacket(
+            client.clientId,
             JSONObject.parseObject(params.get(Conversation.QUERY_PARAM_WHERE)),
             params.get(Conversation.QUERY_PARAM_SORT),
-            Integer.valueOf(params.get(Conversation.QUERY_PARAM_OFFSET)),
-            Integer.valueOf(params.get(Conversation.QUERY_PARAM_LIMIT)), requestId));
+            params.containsKey(Conversation.QUERY_PARAM_OFFSET) ? Integer.valueOf(params
+                .get(Conversation.QUERY_PARAM_OFFSET)) : 0,
+            params.containsKey(Conversation.QUERY_PARAM_LIMIT) ? Integer.valueOf(params
+                .get(Conversation.QUERY_PARAM_LIMIT)) : 10, requestId));
   }
 
   private List<AVIMConversation> parseQueryResult(JSONArray content) {

@@ -134,14 +134,14 @@ public interface Conversation {
               (boolean) intent.getExtra(PARAM_CONVERSATION_ISTRANSIENT),
               (boolean) intent.getExtra(PARAM_CONVERSATION_ISUNIQUE), requestId);
         case 40001:
-          members = JSON.parseArray((String) intent.getExtra(INTENT_KEY_DATA), String.class);
+          members = JSON.parseObject((String) intent.getExtra(INTENT_KEY_DATA), List.class);
           return ConversationControlPacket.genConversationCommand(clientId, conversationId,
               members, ConversationControlPacket.ConversationControlOp.ADD, null,
               (Signature) intent.getExtra(INTENT_KEY_SIGNATURE), requestId);
         case 40002:
           members = JSON.parseArray((String) intent.getExtra(INTENT_KEY_DATA), String.class);
-          ConversationControlPacket.genConversationCommand(clientId, conversationId, members,
-              ConversationControlPacket.ConversationControlOp.REMOVE, null,
+          return ConversationControlPacket.genConversationCommand(clientId, conversationId,
+              members, ConversationControlPacket.ConversationControlOp.REMOVE, null,
               (Signature) intent.getExtra(INTENT_KEY_SIGNATURE), requestId);
         case 40003:
           return ConversationControlPacket.genConversationCommand(clientId, conversationId,
@@ -181,10 +181,10 @@ public interface Conversation {
           params = JSON.parseObject(dataInString, Map.class);
           return ConversationMessageQueryPacket.getConversationMessageQueryPacket(clientId,
               conversationId, (String) params.get(PARAM_MESSAGE_QUERY_MSGID),
-              (long) params.get(PARAM_MESSAGE_QUERY_TIMESTAMP),
+              ((Number) params.get(PARAM_MESSAGE_QUERY_TIMESTAMP)).longValue(),
               (int) params.get(PARAM_MESSAGE_QUERY_LIMIT),
               (String) params.get(PARAM_MESSAGE_QUERY_TO_MSGID),
-              (long) params.get(PARAM_MESSAGE_QUERY_TO_TIMESTAMP), requestId);
+              ((Number) params.get(PARAM_MESSAGE_QUERY_TO_TIMESTAMP)).longValue(), requestId);
         case 40011:
           return ConversationControlPacket.genConversationCommand(clientId, conversationId, null,
               ConversationControlOp.MUTE, null, null, requestId);

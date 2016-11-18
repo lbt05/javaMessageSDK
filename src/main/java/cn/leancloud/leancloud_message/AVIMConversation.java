@@ -208,7 +208,7 @@ public class AVIMConversation {
       }
     }
 
-    queryMessages(null, 0, limit, null, 0, callback);
+    queryMessages(null, 0l, limit, null, 0l, callback);
   }
 
   /**
@@ -221,7 +221,7 @@ public class AVIMConversation {
    */
   public void queryMessages(final String msgId, final long timestamp, final int limit,
       final AVIMMessagesQueryCallback callback) {
-    queryMessages(msgId, timestamp, limit, null, 0, callback);
+    queryMessages(msgId, timestamp, limit, null, 0l, callback);
   }
 
   /**
@@ -234,7 +234,7 @@ public class AVIMConversation {
    * @param callback
    */
   public void getLastMessage(final AVIMSingleMessageQueryCallback callback) {
-    queryMessages(null, 0, 1, null, 0, new AVIMMessagesQueryCallback() {
+    queryMessages(null, 0l, 1, null, 0l, new AVIMMessagesQueryCallback() {
       @Override
       public void done(List<AVIMMessage> messages, AVIMException e) {
         processLastMessageResult(messages, e, callback);
@@ -276,9 +276,6 @@ public class AVIMConversation {
       return;
     }
 
-    final Map<String, Object> params = new HashMap<String, Object>();
-    params.put(Conversation.PARAM_CONVERSATION_MEMBER, friendsList);
-
     SignatureCallback signatureCallback = new SignatureCallback() {
 
       @Override
@@ -286,7 +283,7 @@ public class AVIMConversation {
         if (e != null) {
           callback.done(new AVIMException(e));
         } else {
-          sendCMDToServer(JSON.toJSONString(params), AVIMOperation.CONVERSATION_ADD_MEMBER,
+          sendCMDToServer(JSON.toJSONString(friendsList), AVIMOperation.CONVERSATION_ADD_MEMBER,
               callback, new OperationCompleteCallback() {
 
                 @Override

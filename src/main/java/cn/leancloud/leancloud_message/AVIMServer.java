@@ -275,6 +275,11 @@ class AVIMServer implements AVSocketListener {
         String conversationId = convMessage.getCid();
         intent.putExtra(Conversation.callbackConversationKey, conversationId);
         intent.putExtra(Conversation.callbackCreatedAt, convMessage.getCdate());
+        if (ConversationControlPacket.ConversationControlOp.MEMBER_COUNT_QUERY_RESULT
+            .equals(operation)) {
+          intent.putExtra(Conversation.callbackMemberCount, convMessage.getCount());
+        }
+
       }
       if (receiver != null) {
         receiver.onReceive(intent);
